@@ -1,0 +1,266 @@
+/*
+Katherine Larsen
+Created a program that will scan for phish words in a text file, and caculate the overall 
+"phishiness" of the email based off the words that appear. 
+*/
+
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// Function to scan for occurances of a word in an array
+int scanForStrings (const char *buffer, const char *strings[], int num_strings, int frequentArray[]);
+
+// Function to check if word contains at least one value or numbers to determine if it is a correctly spelled word:
+bool scanForMisspelling( char *buffer);
+
+int main(void) {
+    
+// Creating & Initilzing Variables:
+	char currentLine[10000];
+	char buff[10000];
+	int lineNumber = 0;
+	int score = 0;
+	int poorCounter = 0, likleyCounter = 0, extremeCounter = 0, misspeltCounter = 0;
+	int character = 0;
+
+	// Creating arrays to hold different words that are somewhat, moderately
+	// likely, or highly likely to appear in a phish email:
+	const char *poorBait[8] = {"review",
+							   "follow up",
+							   "direct deposit",
+							   "payroll",
+							   "label",
+							   "IRS",
+							   "alert",
+							   "thanks"};
+
+	const char *likelyBait[11] = {"urgent",
+								  "purchase",
+								  "invoice due",
+								  "recent activities",
+								  "make payment",
+								  "24 hours",
+								  "vulnerability",
+								  "account",
+								  "Dear Valued Customer,",
+								  "financial",
+								  "delivery"};
+
+	const char *extremeBait[11] = {"click here now",
+								   "payment status",
+								   "account verification",
+								   "action Required",
+								   "unfortunately",
+								   "compromised",
+								   "expires",
+								   "cancelled",
+								   "immediately",
+								   "At risk",
+								   "To review"};
+
+	// Creating arrays to hold the frequentcy of each word that appears from
+	// poor, likely, or extreme array above:
+	int poorFreq[8] = {0};
+	int likelyFreq[11] = {0};
+	int extremeFreq[11] = {0};
+
+	// Open File:
+	FILE *inputFile = fopen("email.txt", "r");
+
+	// Ensuring File can be opened:
+	if (inputFile == NULL) {
+		printf("File has not been found. Please ensure you are putting in a "
+			   "file called email.txt! \n");
+		return 0;
+	} // end of if statement
+
+	// Looping through the file to print what was written to it:
+	printf("\n \n%s", "Displaying Email Message: : \n");
+    puts("------------------------------------------------");
+	
+	while ((character = getc(inputFile)) != EOF) 
+	{
+		putchar(character);
+	}
+
+	// Rewinding file to start at beggining:
+	rewind(inputFile);
+
+	// Creating header for user to see which words were identifed:
+	puts("\n\n----------------------------------------------------------------------------------------------------");
+	printf("\n%-45s %-28s %-28s\n", "Phish Words Found:", "Level of 'Phishiness:'", "Occurances of Word Found:");
+	puts("----------------------------------------------------------------------------------------------------");
+
+	// Getting number of lines in the file:
+	while (!feof(inputFile))
+	{
+		fgets(currentLine, sizeof(currentLine), inputFile);
+
+		/* Calling function that scans for instance of string in specified array (poorBait).
+		If instance if found, increments a counter that counts Level 1/ poor words:*/
+		 poorCounter += scanForStrings(currentLine, poorBait, sizeof(poorBait) / sizeof(poorBait[0]), poorFreq);
+
+		/* Calling function that scans for instance of string in specified array (likelyBait).
+		If instance if found, increments a counter that counts Level 2/ likely words: */
+		likleyCounter += scanForStrings(currentLine, likelyBait, sizeof(likelyBait) / sizeof(likelyBait[0]), likelyFreq);
+
+		/* Calling function that scans for instance of string in specified array (extremeBait).
+		 If instance if found, increments a counter that counts Level 3/extreme words: */
+		extremeCounter += scanForStrings(currentLine, extremeBait, sizeof(extremeBait) / sizeof(extremeBait[0]), extremeFreq);
+
+		// Calling function that scans for words that do not contain 1 vowel/number.
+		if (scanForMisspelling(currentLine) == true)
+		{
+			misspeltCounter += 4;
+		} //end of if statment
+	} //end of while loop
+
+	/* Looping each of the arrays that hold the frequnecy of each phish word
+	-If frequency is greater than 0, display the word, level, and frequency of the word*/
+	for (int i = 0; i < sizeof(poorFreq) / (sizeof poorFreq[0]); i++) 
+	{
+		if (poorFreq[i] > 0)
+		{
+			printf("\n%-28s \t \t \t \tLevel: %d %28d\n", poorBait[i], 1, poorFreq[i]);
+		}
+	} //end of for loop
+
+	for (int i = 0; i < sizeof(likelyFreq) / (sizeof likelyFreq[0]); i++)
+	{
+		if (likelyFreq[i] > 0) 
+		{
+			printf("\n%-28s \t \t \t \tLevel: %d %28d\n", likelyBait[i], 2, likelyFreq[i]);
+		}
+	} //end of for loop
+
+	for (int i = 0; i < sizeof(extremeFreq) / (sizeof extremeFreq[0]); i++)
+	{
+		if (extremeFreq[i] > 0) 
+		{
+			printf("\n%-28s \t \t \t \tLevel: %d %28d\n", extremeBait[i], 3, extremeFreq[i]);
+		}
+	}//end of for loop
+
+	// Increment the total score based off word occurances above:
+	score += (poorCounter) + (likleyCounter * 2) + (extremeCounter * 3) + misspeltCounter;
+
+	puts("----------------------------------------------------------------------------------------------------");
+	// Determing how likely the emial is a phish emial by counting the
+	// occurances of each level (1-3)
+	if (extremeCounter >= likleyCounter ) 
+	{
+		printf("\nYour Email Scorecore is: %d!", score);
+		printf(	"%s",
+			"\nIt is extremely likely this is not a real email. Please delete "
+			"this email and do not click on any links or images. Do not call "
+			"any of the listed numbers or provide any sensitive information, "
+			"even if the email seems threatening. Report this email to your "
+			"manager or IT team to inform other employees of the threat as well.");
+	}
+
+	if (likleyCounter > poorCounter) 
+	{
+		printf("\nYour Email Scorecore is: %d!", score);
+		printf("%s",
+			"\nIt is moderately likely this is not a real email. To be safe, "
+			"do not click on any links or images. Report this email to your "
+			"manager or IT team to determine the validity of the email. It is "
+			"recommended you delete the email or block the address from "
+			"contacting you again if it is determined to be a false email. "
+			"Remember to always proofread incoming emails for suspicious links, or misspellings.");
+	}
+
+	if (poorCounter >= likleyCounter && poorCounter >= extremeCounter)
+	{
+		printf("\nYour Email Scorecore is: %d!", score);
+		printf("%s","\nThis is most likely a real email. Though to be safe, do not click on any links or images." 
+                       "Better to be safe than sorry");
+	}
+
+	// Displaying a histogram of each level of phishiness by looping through
+	// each levels occurance:
+	puts("\n \nHistogram of Values: ");
+    puts("-----------------------------------------------");
+
+	printf("%s", "Poor Bait Occurances: ");
+	for (int i = 0; i < poorCounter; i++) 
+	{
+		printf("%c", '*');
+	}
+	puts(" ");
+	
+	printf("%s", "Likley Bait Occurances: ");
+	for (int i = 0; i < likleyCounter; i++) 
+	{
+		printf("%c", '*');
+	}
+
+	puts(" ");
+	printf("%s", "Extreme Bait Occurances: ");
+	for (int i = 0; i < extremeCounter; i++)
+	{
+		printf("%c", '*');
+	}
+
+	return 0;
+}
+
+// Function to scan for occurances of a word in an array
+int scanForStrings(const char *buffer, const char *strings[], int num_strings, int frequentArray[])
+{
+	// Delcaring & Initilzing Variables:
+	int score = 0;
+
+	// Looping through the file to and setting a position to locate the phish instance:
+	for (int i = 0; i < num_strings; i++) 
+	{
+		const char *position;
+		position = buffer;
+
+		// Checking memory before we defererence posision:
+		while (position != NULL && *position != 0)
+		{
+			// Using strstr function from C libary to locate the phish instance in an array:
+			position = strstr(position, strings[i]);
+
+			// Instance found:
+			if (position != NULL) {
+				
+				// Increment the frequency, score, and position if instance is found:
+				frequentArray[i]++;
+				score++;
+				position++;
+
+			} // end of if statement checkin if word is found
+		}	 // end of while
+	}		  // end of for
+	return score;
+} // end of function
+
+
+// Function to check if word contains at least one vowel or number to determine if it is a correctly spelled word:
+bool scanForMisspelling( char *buffer) {
+	char alpha[22] = "AEIOUYaeiouy0123456789";
+	char *piece;
+
+	// Using strtok function to break the string into "mini strings"/tokens if they contain a , . \n i or space
+	piece = strtok(buffer, " ,.-\n\r");
+	
+	// Looping through each token before it reaches the end:
+	while (piece != NULL) 
+	{
+		piece = strtok(NULL, " ,.-\n\r");
+		// Checking to see if the token is not at the end & does not contain any
+		// of the characters set in alpha
+		if (piece != NULL && strpbrk(piece, alpha) == NULL) 
+		{
+			printf("%-28s \t \t \t  Level: Misspelt\n", piece);
+            puts("");
+			return true;
+		}
+
+	} // end of while
+
+} // end of function
